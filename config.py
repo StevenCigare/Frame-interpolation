@@ -1,0 +1,4 @@
+PATH_TO_IMAGES = "FlyingChairs/FlyingChairs_release/data/"
+NUMBER_OF_SAMPLES_TO_LOAD = 100
+TRAINING = True
+MODEL_INPUT_SHAPE = (384, 512, 6)

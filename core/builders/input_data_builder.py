@@ -16,8 +16,11 @@ class InputDataBuilder:
         print(images.shape)
         return self
 
+    def _split_train_test(self):
+        pass
+
     @staticmethod
-    def _load_data():
+    def _load_data() -> tuple[np.ndarray, np.ndarray]:
         files_names = os.listdir(PATH_TO_IMAGES)
         flows = []
         images = []

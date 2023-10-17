@@ -1,8 +1,9 @@
 import tensorflow as tf
+import numpy as np
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose, Input, Concatenate
 from config import MODEL_INPUT_SHAPE, TRAINING
 from datetime import datetime as d
-
+from PIL import Image
 class EndPointError(tf.keras.losses.Loss):
     def call(self, y_true, y_pred):
         return tf.keras.backend.sqrt(
@@ -100,7 +101,20 @@ class FlowNet:
             validation_data=validation_data
         )
         date_time = d.now().strftime("%m_%d_%Y__%H_%M_%S") + ".keras"
-        self.model.save(date_time)
+        self.model.save("\\models\\"+date_time)
+
+    def generate_flow(self, first_image_path, second_image_path):
+        images = np.concatenate([
+            Image.open(first_image_path),
+            Image.open(second_image_path)
+        ], axis=-1
+        )
+        new_shape = (1,)+images.shape
+        print(new_shape)
+        images = np.reshape(images, new_shape)
+        print(images.shape)
+        return self._model.predict(images)
+
     # def train(self, x_train, y_train):
     #     self.model.fit(
     #         x=x_train,

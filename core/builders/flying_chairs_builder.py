@@ -3,7 +3,6 @@ import numpy as np
 from PIL import Image
 from tensorflow.keras.utils import Sequence
 from config import PATH_TO_IMAGES, NUMBER_OF_SAMPLES_TO_LOAD
-from sklearn.utils import shuffle
 
 
 class FlyingChairsDataGenerator(Sequence):

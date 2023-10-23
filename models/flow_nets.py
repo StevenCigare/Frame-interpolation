@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose, Input, Concatenate
+from tensorflow.keras.callbacks import ModelCheckpoint
 from config import MODEL_INPUT_SHAPE, TRAINING
 from datetime import datetime as d
 from PIL import Image
@@ -8,9 +9,13 @@ from PIL import Image
 from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like
 
 
-class EndPointError(tf.keras.losses.Loss):
+class Epe(tf.keras.losses.Loss):
+
+    def __init__(self,ratio):
+        super().__init__()
+        self.ratio = ratio
     def call(self, y_true, y_pred):
-        return tf.keras.backend.sqrt(
+        return self.ratio*tf.keras.backend.sqrt(
             tf.keras.backend.sum(
                 tf.keras.backend.square(tf.keras.preprocessing.image.smart_resize(y_true, y_pred.shape[1:3]) - y_pred),
                 axis=1, keepdims=True))
@@ -18,7 +23,8 @@ class EndPointError(tf.keras.losses.Loss):
 
 class FlowNet:
     def __init__(self):
-        self._model: tf.keras.Sequential | None = None
+
+        self._model = None
 
     @property
     def model(self) -> tf.keras.Sequential:
@@ -84,24 +90,31 @@ class FlowNet:
         if TRAINING:
             self._model = tf.keras.Model(
                 inputs=input_layer,
-                outputs=[predict_6, predict5, predict4, predict3, predict2, predict1, predict0] #, predict1
+                outputs=[predict0] #, , predict1
             )
         else:
-            self._model = tf.keras.Model(inputs=input_layer, outputs=predict1)
-        epe = EndPointError()
+            self._model = tf.keras.Model(inputs=input_layer, outputs=predict0)
 
-        self.model.compile(optimizer="adam", loss=[epe, epe, epe, epe, epe, epe])
+        self.model.compile(optimizer="adam", loss=[Epe(1)])
         self.model.summary()
 
-    def train(self, data_generator, epochs=10, steps_per_epoch=None, validation_data=None):
+    def train(self, data_generator, validation_generator=None, epochs=10, steps_per_epoch=None ):
+        checkpoint = ModelCheckpoint(
+            filepath='best_model.keras',  # The filename to save the best model
+            monitor='val_loss',  # The metric to monitor (e.g., validation loss)
+            save_best_only=True,  # Save only the best model
+            mode='min',  # 'min' for loss, 'max' for accuracy, 'auto' to infer
+            verbose=1  # Set to 1 to see messages when saving
+        )
         self.model.fit(
             data_generator,
+            validation_data=validation_generator,
             epochs=epochs,
             steps_per_epoch=steps_per_epoch,
-            validation_data=validation_data
+            callbacks=[checkpoint]
         )
         date_time = d.now().strftime("%m_%d_%Y__%H_%M_%S") + ".keras"
-        self.model.save("\\models\\" + date_time)
+        self.model.save(date_time)
 
     def generate_flow(self, first_image_path: str, second_image_path: str):
         images = np.concatenate([

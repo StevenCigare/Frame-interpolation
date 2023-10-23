@@ -20,6 +20,31 @@ def write_flo_file(filename, flow_data):
         f.write(dimensions.tobytes())
         f.write(data)
 
+def read_flo_file(filename):
+    """
+    Read optical flow data from a .flo file.
+
+    Args:
+        filename (str): The path to the .flo file.
+
+    Returns:
+        flow_data (numpy.ndarray): Optical flow data of shape (height, width, 2).
+    """
+    with open(filename, 'rb') as f:
+        # Read the .flo file header
+        header = np.fromfile(f, np.uint8, 4)
+        if not np.array_equal(header, np.array([80, 73, 69, 72], dtype=np.uint8)):
+            raise ValueError("Invalid .flo file format")
+
+        # Read dimensions (width and height)
+        dimensions = np.fromfile(f, np.int32, 2)
+        width, height = dimensions[0], dimensions[1]
+
+        # Read the flow data
+        data = np.fromfile(f, np.float32, width * height * 2)
+        flow_data = data.reshape((height, width, 2))
+
+    return flow_data
 
 def conv2d_leaky_relu(
         layer_input,
@@ -29,12 +54,13 @@ def conv2d_leaky_relu(
         strides: tuple[int, int] = (1, 1),
 ):
     pad = tf.keras.layers.ZeroPadding2D(padding=padding)(layer_input)
-    conv = tf.keras.layers.Conv2D(
+    return tf.keras.layers.Conv2D(
         filters=filters,
         kernel_size=kernel_size,
         strides=strides,
+        activation="relu"
     )(pad)
-    return tf.keras.layers.LeakyReLU(alpha=0.1)(conv)
+   # return tf.keras.layers.LeakyReLU(alpha=0.1)(conv)
 
 
 def conv2d_transpose_leaky_relu(
@@ -45,10 +71,11 @@ def conv2d_transpose_leaky_relu(
         strides: tuple[int, int],
 ):
     pad = tf.keras.layers.ZeroPadding2D(padding=padding)(layer_input)
-    conv_trans = tf.keras.layers.Conv2DTranspose(
+    return tf.keras.layers.Conv2DTranspose(
         filters=filters,
         kernel_size=kernel_size,
         strides=strides,
+        activation="relu"
     )(pad)
     return tf.keras.layers.LeakyReLU(alpha=0.1)(conv_trans)
 

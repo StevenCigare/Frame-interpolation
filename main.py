@@ -1,27 +1,31 @@
 import os
 
 import cv2
+import keras.models
 
 from config import TRAINING, PATH_TO_IMAGES
 from core.builders.flying_chairs_builder import FlyingChairsDataGenerator
 from models.flow_nets import FlowNet
-from utils.utils import write_flo_file
+from utils.utils import write_flo_file,read_flo_file
+import numpy as np
 
 if __name__ == '__main__':
     # if out of gpu memory error, try smaller batch_size
     flow_net = FlowNet()
     flow_net.create_model()
     if TRAINING:
-        data_generator = FlyingChairsDataGenerator(batch_size=16)
-
-        flow_net.train(data_generator, epochs=10)
+       #flow_net.model.load_weights('C:\\Users\\micha\\Downloads\\Frame-interpolation\\best_model.keras')
+        data_generator = FlyingChairsDataGenerator(batch_size=8)
+        validation_generator = FlyingChairsDataGenerator(batch_size=8, validation=True)
+        flow_net.train(data_generator, validation_generator, epochs=10  )
     else:
-        flow_net.model.load_weights('C:\\Users\\micha\\Downloads\\Frame-interpolation\\10_14_2023__15_55_11.keras')
+        #flow_net.model = keras.models.load_model('C:\\Users\\micha\\Downloads\\Frame-interpolation\\best_model.keras')
+        flow_net.model.load_weights('C:\\Users\\micha\\Downloads\\Frame-interpolation\\best_model.keras')
         images = []
         flow_file_name = "{:05d}_flow.flo"
         first_img_name = "{:05d}_img1.ppm"
         second_img_name = "{:05d}_img2.ppm"
-        files_index = 18624
+        files_index = 21000
         flow = flow_net.generate_flow(PATH_TO_IMAGES + first_img_name.format(files_index),
                                       PATH_TO_IMAGES + second_img_name.format(files_index))[0]
         upscaled_flow = cv2.resize(flow, (512, 384), interpolation=cv2.INTER_CUBIC)
@@ -31,3 +35,8 @@ if __name__ == '__main__':
         os.system(
             "python -m flowiz " + PATH_TO_IMAGES + flow_file_name.format(files_index) + " --outdir " + current_path
         )
+        gt_flow = read_flo_file(PATH_TO_IMAGES + flow_file_name.format(files_index))
+        du = upscaled_flow[:, :, 0] - gt_flow[:, :, 0]
+        dv = upscaled_flow[:, :, 1] - gt_flow[:, :, 1]
+        endpoint_error = np.sum(np.sqrt(du ** 2 + dv ** 2))/(gt_flow.shape[0]*gt_flow.shape[1])
+        print(endpoint_error)

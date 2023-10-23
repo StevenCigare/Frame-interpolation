@@ -6,18 +6,28 @@ from config import PATH_TO_IMAGES, NUMBER_OF_SAMPLES_TO_LOAD
 
 
 class FlyingChairsDataGenerator(Sequence):
-    def __init__(self, batch_size):
+    def __init__(self, batch_size,validation=False):
         self.data_directory = PATH_TO_IMAGES
         self.batch_size = batch_size
-        self.number_of_samples = NUMBER_OF_SAMPLES_TO_LOAD
+        if validation:
+            self.number_of_samples = int(NUMBER_OF_SAMPLES_TO_LOAD*0.1) - int(NUMBER_OF_SAMPLES_TO_LOAD*0.9) % 8
+        else:
+            self.number_of_samples = int(NUMBER_OF_SAMPLES_TO_LOAD*0.9) - int(NUMBER_OF_SAMPLES_TO_LOAD*0.9) % 8
         # arrays of flow and image cases indexes
         # from 1 to n+1 where N is number of image pairs and corresponding flow
-        self.files_indexes = np.arange(1, self.number_of_samples + 1)
+
         self.flow_file_name = "{:05d}_flow.flo"
         self.first_img_name = "{:05d}_img1.ppm"
         self.second_img_name = "{:05d}_img2.ppm"
         # shuffle files indexes
+        validation_split_idx = int(NUMBER_OF_SAMPLES_TO_LOAD*0.9) - int(NUMBER_OF_SAMPLES_TO_LOAD*0.9) % 8
+        self.files_indexes = []
+        if validation:
+            self.files_indexes = np.arange(validation_split_idx+1, NUMBER_OF_SAMPLES_TO_LOAD+1)
+        else:
+            self.files_indexes = np.arange(1, validation_split_idx+1)
         self.on_epoch_end()
+
 
     def __len__(self):
         return int(np.ceil(self.number_of_samples / self.batch_size))

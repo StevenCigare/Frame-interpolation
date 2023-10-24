@@ -1,33 +1,62 @@
-import tensorflow as tf
-import numpy as np
-from tensorflow.keras.layers import Conv2D, Conv2DTranspose, Input, Concatenate
-from tensorflow.keras.callbacks import ModelCheckpoint
-from config import MODEL_INPUT_SHAPE, TRAINING
 from datetime import datetime as d
-from PIL import Image
 
-from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like
+import cv2
+import keras
+import numpy as np
+import tensorflow as tf
+from PIL import Image
+from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.layers import Conv2D, Concatenate
+
+from config import MODEL_INPUT_SHAPE, TRAINING, PATH_TO_IMAGES
+from utils import Visualizer
+from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like, flow_to_color
 
 
 class Epe(tf.keras.losses.Loss):
 
-    def __init__(self,ratio):
+    def __init__(self, ratio):
         super().__init__()
         self.ratio = ratio
+
     def call(self, y_true, y_pred):
-        return self.ratio*tf.keras.backend.sqrt(
+        return self.ratio * tf.keras.backend.sqrt(
             tf.keras.backend.sum(
                 tf.keras.backend.square(tf.keras.preprocessing.image.smart_resize(y_true, y_pred.shape[1:3]) - y_pred),
                 axis=1, keepdims=True))
 
 
+class PatchCallback(tf.keras.callbacks.Callback):
+    def __init__(self, model: keras.Sequential) -> None:
+        super().__init__()
+        self.model = model
+        self.images = np.expand_dims(
+            np.concatenate([
+                Image.open(f"{PATH_TO_IMAGES}/00019_img1.ppm"),
+                Image.open(f"{PATH_TO_IMAGES}/00019_img2.ppm")
+            ], axis=-1
+            ), axis=0
+        )
+
+        self.visualizer = Visualizer()
+
+    def on_epoch_end(self, epoch, logs=None) -> None:
+        flow = self.model.predict(self.images)[0]
+        resized = cv2.resize(flow, (512, 384), interpolation=cv2.INTER_CUBIC)
+        self.visualizer.draw_flow(flow_to_color(resized))
+
+
 class FlowNet:
     def __init__(self):
-
         self._model = None
 
     @property
     def model(self) -> tf.keras.Sequential:
+        """Check if model exists.
+
+        Returns:
+            keras model.
+        """
         if self._model is None:
             print("Model not present.")
         else:
@@ -90,7 +119,7 @@ class FlowNet:
         if TRAINING:
             self._model = tf.keras.Model(
                 inputs=input_layer,
-                outputs=[predict0] #, , predict1
+                outputs=[predict0]
             )
         else:
             self._model = tf.keras.Model(inputs=input_layer, outputs=predict0)
@@ -98,7 +127,7 @@ class FlowNet:
         self.model.compile(optimizer="adam", loss=[Epe(1)])
         self.model.summary()
 
-    def train(self, data_generator, validation_generator=None, epochs=10, steps_per_epoch=None ):
+    def train(self, data_generator, validation_generator=None, epochs=10, steps_per_epoch=None):
         checkpoint = ModelCheckpoint(
             filepath='best_model.keras',  # The filename to save the best model
             monitor='val_loss',  # The metric to monitor (e.g., validation loss)
@@ -111,7 +140,7 @@ class FlowNet:
             validation_data=validation_generator,
             epochs=epochs,
             steps_per_epoch=steps_per_epoch,
-            callbacks=[checkpoint]
+            callbacks=[checkpoint, PatchCallback(self.model)]
         )
         date_time = d.now().strftime("%m_%d_%Y__%H_%M_%S") + ".keras"
         self.model.save(date_time)
@@ -123,8 +152,4 @@ class FlowNet:
         ], axis=-1
         )
 
-        return self._model.predict(np.expand_dims(images, axis=0))
-
-
-
-
+        return self.model.predict(np.expand_dims(images, axis=0))

@@ -100,15 +100,14 @@ def conv2d_leaky_relu(
         strides: tuple[int, int] = (1, 1),
 ):
     pad = tf.keras.layers.ZeroPadding2D(padding=padding)(layer_input)
-    return tf.keras.layers.Conv2D(
+    conv = tf.keras.layers.Conv2D(
         filters=filters,
         kernel_size=kernel_size,
         strides=strides,
-        activation="relu"
+        kernel_initializer=tf.keras.initializers.he_normal(),
+        bias_initializer=tf.keras.initializers.zeros()
     )(pad)
-
-
-# return tf.keras.layers.LeakyReLU(alpha=0.1)(conv)
+    return tf.keras.layers.LeakyReLU(alpha=0.1)(conv)
 
 
 def conv2d_transpose_leaky_relu(
@@ -119,13 +118,14 @@ def conv2d_transpose_leaky_relu(
         strides: tuple[int, int],
 ):
     pad = tf.keras.layers.ZeroPadding2D(padding=padding)(layer_input)
-    return tf.keras.layers.Conv2DTranspose(
+    conv_trans = tf.keras.layers.Conv2DTranspose(
         filters=filters,
         kernel_size=kernel_size,
         strides=strides,
-        activation="relu"
+        kernel_initializer=tf.keras.initializers.he_normal(),
+        bias_initializer=tf.keras.initializers.zeros()
     )(pad)
-    # return tf.keras.layers.LeakyReLU(alpha=0.1)(conv_trans)
+    return tf.keras.layers.LeakyReLU(alpha=0.1)(conv_trans)
 
 
 def crop_like(input, target):

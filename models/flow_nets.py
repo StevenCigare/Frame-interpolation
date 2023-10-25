@@ -6,7 +6,9 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.layers import Conv2D, Concatenate
+from tensorflow.keras.layers import Conv2D, Concatenate, Conv2DTranspose
+from tensorflow.keras.initializers import VarianceScaling, Constant
+from tensorflow.keras.constraints import UnitNorm, NonNeg
 
 from config import MODEL_INPUT_SHAPE, TRAINING, PATH_TO_IMAGES
 from utils import Visualizer
@@ -32,8 +34,8 @@ class PatchCallback(tf.keras.callbacks.Callback):
         self.model = model
         self.images = np.expand_dims(
             np.concatenate([
-                Image.open(f"{PATH_TO_IMAGES}/00019_img1.ppm"),
-                Image.open(f"{PATH_TO_IMAGES}/00019_img2.ppm")
+                Image.open(f"{PATH_TO_IMAGES}/21000_img1.ppm"),
+                Image.open(f"{PATH_TO_IMAGES}/21000_img2.ppm")
             ], axis=-1
             ), axis=0
         )
@@ -41,9 +43,10 @@ class PatchCallback(tf.keras.callbacks.Callback):
         self.visualizer = Visualizer()
 
     def on_epoch_end(self, epoch, logs=None) -> None:
-        flow = self.model.predict(self.images)[0]
+        flow = self.model.predict(self.images)[6][0]
+
         resized = cv2.resize(flow, (512, 384), interpolation=cv2.INTER_CUBIC)
-        self.visualizer.draw_flow(flow_to_color(resized))
+        #self.visualizer.draw_flow(flow_to_color(resized))
 
 
 class FlowNet:
@@ -78,58 +81,62 @@ class FlowNet:
         conv6_1 = conv2d_leaky_relu(conv6, 1024, (3, 3), padding=(1, 1))
         """ The paper itself doesn't have this documented but all implementations, including the original authors, use an extra flow path in the code. """
 
-        predict_6 = Conv2D(name='predict_6', filters=2, kernel_size=3, strides=(1, 1), activation=None)(conv6_1)
+        predict_6 = Conv2D(name='predict_6', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
+            conv6_1)
 
         upconv5 = crop_like(conv2d_transpose_leaky_relu(conv6, 512, (4, 4), (1, 1), (2, 2)), conv5_1)
         flow6 = crop_like(conv2d_transpose_leaky_relu(predict_6, 2, (4, 4), (1, 1), (2, 2)), conv5_1)
         concat5 = Concatenate(axis=-1)([upconv5, conv5_1, flow6])
-        predict5 = Conv2D(
-            name='predict_5',
-            filters=2,
-            kernel_size=3,
-            strides=(1, 1),
-            activation=None
-        )(concat5)
-
+        predict5 = Conv2D(name='predict_5', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
+            concat5)
+        # try use_bias = false in predict
         upconv4 = crop_like(conv2d_transpose_leaky_relu(concat5, 256, (4, 4), (1, 1), (2, 2)), conv4_1)
         flow5 = crop_like(conv2d_transpose_leaky_relu(predict5, 2, (4, 4), (1, 1), (2, 2)), conv4_1)
         concat4 = Concatenate(axis=-1)([upconv4, conv4_1, flow5])
-        predict4 = Conv2D(name='predict_4', filters=2, kernel_size=3, strides=(1, 1), activation=None)(concat4)
+        predict4 = Conv2D(name='predict_4', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
+            concat4)
 
         upconv3 = crop_like(conv2d_transpose_leaky_relu(concat4, 128, (4, 4), (1, 1), (2, 2)), conv3_1)
         flow4 = crop_like(conv2d_transpose_leaky_relu(predict4, 2, (4, 4), (1, 1), (2, 2)), conv3_1)
         concat3 = Concatenate(axis=-1)([upconv3, conv3_1, flow4])
-        predict3 = Conv2D(name='predict_3', filters=2, kernel_size=3, strides=(1, 1), activation=None)(concat3)
+        predict3 = Conv2D(name='predict_3', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
+            concat3)
 
         upconv2 = crop_like(conv2d_transpose_leaky_relu(concat3, 64, (4, 4), (1, 1), (2, 2)), conv2)
         flow3 = crop_like(conv2d_transpose_leaky_relu(predict3, 2, (4, 4), (1, 1), (2, 2)), conv2)
         concat2 = Concatenate(axis=-1)([upconv2, conv2, flow3])
-        predict2 = Conv2D(name='predict_2', filters=2, kernel_size=3, strides=(1, 1), activation=None)(concat2)
+        predict2 = Conv2D(name='predict_2', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
+            concat2)
 
         upconv1 = crop_like(conv2d_transpose_leaky_relu(concat2, 64, (4, 4), (1, 1), (2, 2)), conv1)
         flow2 = crop_like(conv2d_transpose_leaky_relu(predict2, 2, (4, 4), (1, 1), (2, 2)), conv1)
         concat1 = Concatenate(axis=-1)([upconv1, conv1, flow2])
-        predict1 = Conv2D(name='predict_1', filters=2, kernel_size=3, strides=(1, 1), activation=None)(concat1)
+        predict1 = Conv2D(name='predict_1', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
+            concat1)
 
         upconv0 = crop_like(conv2d_transpose_leaky_relu(concat1, 64, (4, 4), (1, 1), (2, 2)), input_layer)
         flow1 = crop_like(conv2d_transpose_leaky_relu(predict1, 2, (4, 4), (1, 1), (2, 2)), input_layer)
         concat0 = Concatenate(axis=-1)([upconv0, input_layer, flow1])
-        predict0 = Conv2D(name='predict_0', filters=2, kernel_size=3, strides=(1, 1), activation=None)(concat0)
+        predict0 = Conv2D(name='predict_0', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
+            concat0)
 
         if TRAINING:
             self._model = tf.keras.Model(
                 inputs=input_layer,
-                outputs=[predict0]
+                outputs=[predict_6, predict5, predict4, predict3, predict2, predict1, predict0]
             )
         else:
             self._model = tf.keras.Model(inputs=input_layer, outputs=predict0)
 
-        self.model.compile(optimizer="adam", loss=[Epe(1)])
+        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+                           loss=[Epe(1 / 2), Epe(1 / 4), Epe(1 / 8), Epe(1 / 16), Epe(1 / 32), Epe(1 / 64),
+                                 Epe(1 / 128)])
         self.model.summary()
+        # Define custom initializers and constraints
 
     def train(self, data_generator, validation_generator=None, epochs=10, steps_per_epoch=None):
         checkpoint = ModelCheckpoint(
-            filepath='best_model.keras',  # The filename to save the best model
+            filepath='20_01_24_10.keras',  # The filename to save the best model
             monitor='val_loss',  # The metric to monitor (e.g., validation loss)
             save_best_only=True,  # Save only the best model
             mode='min',  # 'min' for loss, 'max' for accuracy, 'auto' to infer

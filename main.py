@@ -14,13 +14,12 @@ if __name__ == '__main__':
     flow_net = FlowNet()
     flow_net.create_model()
     if TRAINING:
-       #flow_net.model.load_weights('C:\\Users\\micha\\Downloads\\Frame-interpolation\\best_model.keras')
+        flow_net.model.load_weights('10_24_2023__22_33_41.keras')
         data_generator = FlyingChairsDataGenerator(batch_size=8)
         validation_generator = FlyingChairsDataGenerator(batch_size=8, validation=True)
-        flow_net.train(data_generator, validation_generator, epochs=10  )
+        flow_net.train(data_generator, validation_generator, epochs=10)
     else:
-        #flow_net.model = keras.models.load_model('C:\\Users\\micha\\Downloads\\Frame-interpolation\\best_model.keras')
-        flow_net.model.load_weights('C:\\Users\\micha\\Downloads\\Frame-interpolation\\best_model.keras')
+        flow_net.model.load_weights('1_24_2023_22_33_41.keras')
         images = []
         flow_file_name = "{:05d}_flow.flo"
         first_img_name = "{:05d}_img1.ppm"
@@ -30,7 +29,7 @@ if __name__ == '__main__':
                                       PATH_TO_IMAGES + second_img_name.format(files_index))[0]
         upscaled_flow = cv2.resize(flow, (512, 384), interpolation=cv2.INTER_CUBIC)
         current_path = os.path.abspath(os.getcwd()) + "\\output\\"
-        write_flo_file(current_path + "\\predicted.flo", upscaled_flow)
+        write_flo_file(current_path, upscaled_flow)
         os.system("python -m flowiz " + current_path + "\\predicted.flo")
         os.system(
             "python -m flowiz " + PATH_TO_IMAGES + flow_file_name.format(files_index) + " --outdir " + current_path

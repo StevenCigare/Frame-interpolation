@@ -43,10 +43,10 @@ class PatchCallback(tf.keras.callbacks.Callback):
         self.visualizer = Visualizer()
 
     def on_epoch_end(self, epoch, logs=None) -> None:
-        flow = self.model.predict(self.images)[6][0]
+        flow = self.model.predict(self.images)[4][0]
 
         resized = cv2.resize(flow, (512, 384), interpolation=cv2.INTER_CUBIC)
-        #self.visualizer.draw_flow(flow_to_color(resized))
+        self.visualizer.draw_flow(flow_to_color(resized))
 
 
 class FlowNet:
@@ -107,36 +107,36 @@ class FlowNet:
         concat2 = Concatenate(axis=-1)([upconv2, conv2, flow3])
         predict2 = Conv2D(name='predict_2', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
             concat2)
-
-        upconv1 = crop_like(conv2d_transpose_leaky_relu(concat2, 64, (4, 4), (1, 1), (2, 2)), conv1)
-        flow2 = crop_like(conv2d_transpose_leaky_relu(predict2, 2, (4, 4), (1, 1), (2, 2)), conv1)
-        concat1 = Concatenate(axis=-1)([upconv1, conv1, flow2])
-        predict1 = Conv2D(name='predict_1', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
-            concat1)
-
-        upconv0 = crop_like(conv2d_transpose_leaky_relu(concat1, 64, (4, 4), (1, 1), (2, 2)), input_layer)
-        flow1 = crop_like(conv2d_transpose_leaky_relu(predict1, 2, (4, 4), (1, 1), (2, 2)), input_layer)
-        concat0 = Concatenate(axis=-1)([upconv0, input_layer, flow1])
-        predict0 = Conv2D(name='predict_0', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
-            concat0)
+        # upconv1 = crop_like(conv2d_transpose_leaky_relu(concat2, 64, (4, 4), (1, 1), (2, 2)), conv1)
+        # flow2 = crop_like(conv2d_transpose_leaky_relu(predict2, 2, (4, 4), (1, 1), (2, 2)), conv1)
+        # concat1 = Concatenate(axis=-1)([upconv1, conv1, flow2])
+        # predict1 = Conv2D(name='predict_1', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
+        #     concat1)
+        #
+        # upconv0 = crop_like(conv2d_transpose_leaky_relu(concat1, 64, (4, 4), (1, 1), (2, 2)), input_layer)
+        # flow1 = crop_like(conv2d_transpose_leaky_relu(predict1, 2, (4, 4), (1, 1), (2, 2)), input_layer)
+        # concat0 = Concatenate(axis=-1)([upconv0, input_layer, flow1])
+        # predict0 = Conv2D(name='predict_0', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
+        #     concat0)
 
         if TRAINING:
             self._model = tf.keras.Model(
                 inputs=input_layer,
-                outputs=[predict_6, predict5, predict4, predict3, predict2, predict1, predict0]
+                outputs=[predict_6, predict5, predict4, predict3, predict2]
             )
         else:
-            self._model = tf.keras.Model(inputs=input_layer, outputs=predict0)
+            self._model = tf.keras.Model(inputs=input_layer, outputs=predict2)
 
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
-                           loss=[Epe(1 / 2), Epe(1 / 4), Epe(1 / 8), Epe(1 / 16), Epe(1 / 32), Epe(1 / 64),
-                                 Epe(1 / 128)])
+        self.model.compile(
+            # should set , weight_decay=4e-4 but seems to not be possible
+            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.9, beta_2=0.999),
+            loss=[Epe(0.32), Epe(0.08), Epe(0.02), Epe(0.01), Epe(0.005)])
         self.model.summary()
         # Define custom initializers and constraints
 
-    def train(self, data_generator, validation_generator=None, epochs=10, steps_per_epoch=None):
+    def train(self, data_generator, validation_generator=None, epochs=300, steps_per_epoch=2700):
         checkpoint = ModelCheckpoint(
-            filepath='20_01_24_10.keras',  # The filename to save the best model
+            filepath='best_model.keras',  # The filename to save the best model
             monitor='val_loss',  # The metric to monitor (e.g., validation loss)
             save_best_only=True,  # Save only the best model
             mode='min',  # 'min' for loss, 'max' for accuracy, 'auto' to infer

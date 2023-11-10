@@ -2,6 +2,7 @@ import os
 import numpy as np
 from PIL import Image
 from tensorflow.keras.utils import Sequence
+from tensorflow.keras.models import Sequential
 from config import PATH_TO_IMAGES, NUMBER_OF_SAMPLES_TO_LOAD
 from core.builders.data_augmentation import Compose, CenterCrop, RandomCrop, \
     RandomHorizontalFlip, RandomVerticalFlip, RandomRotate, RandomTranslate, \
@@ -31,17 +32,17 @@ class FlyingChairsDataGenerator(Sequence):
             self.files_indexes = np.arange(1, validation_split_idx + 1)
 
         # definition of data augmentation
-        self.images_transform = Compose([
+        self.image_transform = [
             Normalize(mean=[0, 0, 0], std=[255, 255, 255]),
             Normalize(mean=[0.45, 0.432, 0.411], std=[1, 1, 1])
-        ])
-        self.flow_transform = Compose([
+        ]
+        self.flow_transform = [
             Normalize(mean=[0, 0], std=[20, 20])
-        ])
+        ]
         self.both_transform = Compose([
             RandomTranslate([10, 10]),
             RandomRotate(10, 5),
-            RandomCrop([320, 512]),
+            RandomCrop([320, 448]),
             RandomVerticalFlip(),
             RandomHorizontalFlip()
         ])
@@ -59,7 +60,7 @@ class FlyingChairsDataGenerator(Sequence):
 
         flows = []
         images = []
-
+        flow_idx  = 0
         for i in range(start_index, end_index):
             # get index from shuffled indexes array
             files_index = self.files_indexes[i]
@@ -74,15 +75,20 @@ class FlyingChairsDataGenerator(Sequence):
                 data = np.fromfile(f, np.float32, int(width) * int(height) * 2).reshape((int(height), int(width), 2))
 
             flows.append(data)
-            #todo: pass np.ndarray of img_pair to both_transform and images_transform
-            #img pair is two corresponding images for flow to predict
-            img_pair = [np.array(Image.open(os.path.join(self.data_directory, self.first_img_name.format(files_index)))),
-                    np.array(Image.open(os.path.join(self.data_directory, self.second_img_name.format(files_index))))]
-            self.both_transform(img_pair, flows[i])
-            self.images_transform(img_pair)
-            self.flow_transform(flows[i])
-            images.append(
-                img_pair
-            )
+            # img pair is two corresponding images for flow to predict
+            img_pair = [np.array(Image.open(os.path.join(self.data_directory
+                                                         , self.first_img_name.format(files_index)))),
+                        np.array(Image.open(os.path.join(self.data_directory
+                                                         , self.second_img_name.format(files_index))))]
 
-        return np.array(images), np.array(flows)
+            img_pair, flows[flow_idx] = self.both_transform(img_pair, flows[flow_idx])
+            for transformation in self.image_transform:
+                img_pair[0] = transformation(img_pair[0])
+                img_pair[1] = transformation(img_pair[1])
+            for transformation in self.flow_transform:
+                flows[flow_idx] = transformation(flows[flow_idx])
+            images.append(np.concatenate([img_pair[0], img_pair[1]], axis=-1))
+            flow_idx += 1
+        out_imgs = np.array(images)
+        out_flows = np.array(flows)
+        return out_imgs, out_flows

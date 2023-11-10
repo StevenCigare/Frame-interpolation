@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import random
-
+import scipy.ndimage as ndimage
 class Compose:
     def __init__(self, co_transforms):
         self.co_transforms = co_transforms
@@ -143,6 +143,5 @@ class Normalize:
         self.std_div = std
 
     def __call__(self, array: np.ndarray) -> np.ndarray:
-        for elem in array:
-            elem = (elem - mean) / std_div
+        array = (array - self.mean) / self.std_div
         return array

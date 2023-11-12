@@ -14,10 +14,8 @@ def write_flo_file(path: str, flow_data: np.ndarray):
         path: Path where the flow file is saved.
         flow_data: Optical flow data of shape (height, width, 2).
     """
-    if not os.path.exists(path):
-        os.mkdir(path)
-    print(f"{path}/predicted.flo")
-    with open(f"{path}/predicted.flo", 'wb') as f:
+    print(f"{path}predicted.flo")
+    with open(f"{path}predicted.flo", 'wb') as f:
         # magic number, indicates that its valid flow file
         # .flo file standard header
         header = np.array([80, 73, 69, 72], dtype=np.uint8)

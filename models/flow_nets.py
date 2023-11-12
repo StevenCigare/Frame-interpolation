@@ -10,9 +10,9 @@ from tensorflow.keras.layers import Conv2D, Concatenate, Conv2DTranspose
 from tensorflow.keras.initializers import VarianceScaling, Constant
 from tensorflow.keras.constraints import UnitNorm, NonNeg
 
-from config import MODEL_INPUT_SHAPE, TRAINING, PATH_TO_IMAGES
+from config import MODEL_INPUT_SHAPE, TRAINING, PATH_TO_IMAGES, MODEL_EPOCHS
 from utils import Visualizer
-from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like, flow_to_color
+from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like, flow_to_color,write_flo_file
 
 
 class Epe(tf.keras.losses.Loss):
@@ -43,10 +43,15 @@ class PatchCallback(tf.keras.callbacks.Callback):
         self.visualizer = Visualizer()
 
     def on_epoch_end(self, epoch, logs=None) -> None:
-        flow = self.model.predict(self.images)[4][0]
+        if self.images is None:
+            print("xd")
+        resized_images = self.images[:,:320,:448,:]
+        # Resize the array using cv2.resize
+        # Transpose the array back to the original shape
+        flow = self.model.predict(resized_images)[4][0]
 
         resized = cv2.resize(flow, (512, 384), interpolation=cv2.INTER_CUBIC)
-        self.visualizer.draw_flow(flow_to_color(resized))
+        write_flo_file(f"output//epoch_{epoch}_",resized)
 
 
 class FlowNet:
@@ -134,7 +139,7 @@ class FlowNet:
         self.model.summary()
         # Define custom initializers and constraints
 
-    def train(self, data_generator, validation_generator=None, epochs=300, steps_per_epoch=2700):
+    def train(self, data_generator, validation_generator=None, epochs=None, steps_per_epoch=None):
         checkpoint = ModelCheckpoint(
             filepath='best_model.keras',  # The filename to save the best model
             monitor='val_loss',  # The metric to monitor (e.g., validation loss)
@@ -145,6 +150,7 @@ class FlowNet:
         self.model.fit(
             data_generator,
             validation_data=validation_generator,
+            workers=8,
             epochs=epochs,
             steps_per_epoch=steps_per_epoch,
             callbacks=[checkpoint, PatchCallback(self.model)]

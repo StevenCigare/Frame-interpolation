@@ -3,20 +3,23 @@ import os
 import cv2
 import keras.models
 
-from config import TRAINING, PATH_TO_IMAGES, MODEL_EPOCHS, MODEL_STEPS_PER_EPOCH
+from config import TRAINING, PATH_TO_IMAGES, MODEL_EPOCHS, MODEL_STEPS_PER_EPOCH,MODEL_BATCH_SIZE
 from core.builders.flying_chairs_builder import FlyingChairsDataGenerator
 from models.flow_nets import FlowNet
-from utils.utils import write_flo_file,read_flo_file
+from utils.utils import write_flo_file,read_flo_file, flow_to_color
+from utils.visualizer import Visualizer
 import numpy as np
 
 if __name__ == '__main__':
+
     # if out of gpu memory error, try smaller batch_size
     flow_net = FlowNet()
     flow_net.create_model()
     if TRAINING:
-        data_generator = FlyingChairsDataGenerator(batch_size=8)
-        validation_generator = FlyingChairsDataGenerator(batch_size=8, validation=True)
-        flow_net.train(data_generator, validation_generator, epochs=MODEL_EPOCHS, steps_per_epoch=MODEL_STEPS_PER_EPOCH)
+        flow_net.model.load_weights('best_model.keras')
+        data_generator = FlyingChairsDataGenerator(batch_size=MODEL_BATCH_SIZE)
+        validation_generator = FlyingChairsDataGenerator(batch_size=MODEL_BATCH_SIZE, validation=True)
+        flow_net.train(data_generator, validation_generator, epochs=MODEL_EPOCHS,steps_per_epoch=MODEL_STEPS_PER_EPOCH )#
     else:
         flow_net.model.load_weights('10_24_2023__22_33_41.keras')
         images = []

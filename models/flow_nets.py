@@ -5,14 +5,16 @@ import keras
 import numpy as np
 import tensorflow as tf
 from PIL import Image
+from tensorflow.keras.backend import in_train_phase
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.layers import Conv2D, Concatenate, Conv2DTranspose
 from tensorflow.keras.initializers import VarianceScaling, Constant
 from tensorflow.keras.constraints import UnitNorm, NonNeg
-
-from config import MODEL_INPUT_SHAPE, TRAINING, PATH_TO_IMAGES, MODEL_EPOCHS
+from config import MODEL_INPUT_SHAPE, TRAINING, PATH_TO_IMAGES, MODEL_EPOCHS, MODEL_BATCH_SIZE
 from utils import Visualizer
-from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like, flow_to_color,write_flo_file
+from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like, flow_to_color, write_flo_file
+from core.builders.data_augmentation import Normalize
+import imageio
 
 
 class Epe(tf.keras.losses.Loss):
@@ -22,10 +24,13 @@ class Epe(tf.keras.losses.Loss):
         self.ratio = ratio
 
     def call(self, y_true, y_pred):
-        return self.ratio * tf.keras.backend.sqrt(
-            tf.keras.backend.sum(
-                tf.keras.backend.square(tf.keras.preprocessing.image.smart_resize(y_true, y_pred.shape[1:3]) - y_pred),
-                axis=1, keepdims=True))
+        return self.ratio * self.end_point_error(y_true,y_pred)
+    def end_point_error(self,y_true,y_pred):
+        resized_true = tf.image.resize(y_true, tf.shape(y_pred)[1:3])
+        # Compute Euclidean distance
+        squared_difference = tf.square(resized_true - y_pred)
+        distance = tf.sqrt(tf.reduce_sum(squared_difference, axis=-1))
+        return self.ratio * tf.reduce_mean(distance)
 
 
 class PatchCallback(tf.keras.callbacks.Callback):
@@ -34,24 +39,28 @@ class PatchCallback(tf.keras.callbacks.Callback):
         self.model = model
         self.images = np.expand_dims(
             np.concatenate([
-                Image.open(f"{PATH_TO_IMAGES}/21000_img1.ppm"),
-                Image.open(f"{PATH_TO_IMAGES}/21000_img2.ppm")
+                imageio.imread_v2(f"{PATH_TO_IMAGES}/21000_img1.ppm").astype(np.float32),
+                imageio.imread_v2(f"{PATH_TO_IMAGES}/21000_img2.ppm").astype(np.float32)
             ], axis=-1
             ), axis=0
         )
-
+        # self.image_transform = [
+        #     Normalize(mean=[0, 0, 0], std=[255, 255, 255]),
+        #     Normalize(mean=[0.45, 0.432, 0.411], std=[1, 1, 1])
+        # ]
+        # for transformation in self.image_transform:
+        #     self.images[:, :, :, 0:3] = transformation(self.images[:, :, :, 0:3])
+        #     self.images[:, :, :, 3:6] = transformation(self.images[:, :, :, 3:6])
         self.visualizer = Visualizer()
 
     def on_epoch_end(self, epoch, logs=None) -> None:
-        if self.images is None:
-            print("xd")
-        resized_images = self.images[:,:320,:448,:]
+        resized_images = self.images[:, :320, :448, :]
         # Resize the array using cv2.resize
         # Transpose the array back to the original shape
-        flow = self.model.predict(resized_images)[4][0]
+        flow = self.model.predict(resized_images)[6][0]
 
         resized = cv2.resize(flow, (512, 384), interpolation=cv2.INTER_CUBIC)
-        write_flo_file(f"output//epoch_{epoch}_",resized)
+        write_flo_file(f"output//epoch_{epoch}_", resized)
 
 
 class FlowNet:
@@ -112,37 +121,38 @@ class FlowNet:
         concat2 = Concatenate(axis=-1)([upconv2, conv2, flow3])
         predict2 = Conv2D(name='predict_2', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
             concat2)
-        # upconv1 = crop_like(conv2d_transpose_leaky_relu(concat2, 64, (4, 4), (1, 1), (2, 2)), conv1)
-        # flow2 = crop_like(conv2d_transpose_leaky_relu(predict2, 2, (4, 4), (1, 1), (2, 2)), conv1)
-        # concat1 = Concatenate(axis=-1)([upconv1, conv1, flow2])
-        # predict1 = Conv2D(name='predict_1', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
-        #     concat1)
-        #
-        # upconv0 = crop_like(conv2d_transpose_leaky_relu(concat1, 64, (4, 4), (1, 1), (2, 2)), input_layer)
-        # flow1 = crop_like(conv2d_transpose_leaky_relu(predict1, 2, (4, 4), (1, 1), (2, 2)), input_layer)
-        # concat0 = Concatenate(axis=-1)([upconv0, input_layer, flow1])
-        # predict0 = Conv2D(name='predict_0', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
-        #     concat0)
+        upconv1 = crop_like(conv2d_transpose_leaky_relu(concat2, 64, (4, 4), (1, 1), (2, 2)), conv1)
+        flow2 = crop_like(conv2d_transpose_leaky_relu(predict2, 2, (4, 4), (1, 1), (2, 2)), conv1)
+        concat1 = Concatenate(axis=-1)([upconv1, conv1, flow2])
+        predict1 = Conv2D(name='predict_1', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
+            concat1)
+
+        upconv0 = crop_like(conv2d_transpose_leaky_relu(concat1, 64, (4, 4), (1, 1), (2, 2)), input_layer)
+        flow1 = crop_like(conv2d_transpose_leaky_relu(predict1, 2, (4, 4), (1, 1), (2, 2)), input_layer)
+        concat0 = Concatenate(axis=-1)([upconv0, input_layer, flow1])
+        predict0 = Conv2D(name='predict_0', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
+            concat0)
 
         if TRAINING:
             self._model = tf.keras.Model(
                 inputs=input_layer,
-                outputs=[predict_6, predict5, predict4, predict3, predict2]
+                outputs=[predict_6, predict5, predict4, predict3, predict2, predict1, predict0]
             )
         else:
-            self._model = tf.keras.Model(inputs=input_layer, outputs=predict2)
+            self._model = tf.keras.Model(inputs=input_layer, outputs=predict0)
 
         self.model.compile(
             # should set , weight_decay=4e-4 but seems to not be possible
-            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.9, beta_2=0.999),
-            loss=[Epe(0.32), Epe(0.08), Epe(0.02), Epe(0.01), Epe(0.005)])
+            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+            loss=[Epe(1/2), Epe(1/4), Epe(1/8), Epe(1/16), Epe(1/32), Epe(1/64), Epe(1/128)]),
+
         self.model.summary()
         # Define custom initializers and constraints
 
     def train(self, data_generator, validation_generator=None, epochs=None, steps_per_epoch=None):
         checkpoint = ModelCheckpoint(
             filepath='best_model.keras',  # The filename to save the best model
-            monitor='val_loss',  # The metric to monitor (e.g., validation loss)
+            monitor='val_predict_0_loss',  # The metric to monitor (e.g., validation loss)
             save_best_only=True,  # Save only the best model
             mode='min',  # 'min' for loss, 'max' for accuracy, 'auto' to infer
             verbose=1  # Set to 1 to see messages when saving
@@ -150,7 +160,7 @@ class FlowNet:
         self.model.fit(
             data_generator,
             validation_data=validation_generator,
-            workers=8,
+            workers=MODEL_BATCH_SIZE,
             epochs=epochs,
             steps_per_epoch=steps_per_epoch,
             callbacks=[checkpoint, PatchCallback(self.model)]
@@ -160,8 +170,8 @@ class FlowNet:
 
     def generate_flow(self, first_image_path: str, second_image_path: str):
         images = np.concatenate([
-            Image.open(first_image_path),
-            Image.open(second_image_path)
+            Image.open(first_image_path).astype(np.float32),
+            Image.open(second_image_path).astype(np.float32)
         ], axis=-1
         )
 

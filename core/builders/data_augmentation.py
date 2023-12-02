@@ -148,3 +148,13 @@ class Normalize:
     def __call__(self, array: np.ndarray) -> np.ndarray:
         array = (array - self.mean) / self.std_div
         return array.astype(np.float32)
+
+
+class InverseNormalize:
+    def __init__(self, mean: list, std: list) -> np.ndarray:
+        self.mean = mean
+        self.std_div = std
+
+    def __call__(self, array: np.ndarray) -> np.ndarray:
+        array = (array - self.mean) * self.std_div
+        return array.astype(np.float32)

@@ -13,7 +13,7 @@ from tensorflow.keras.constraints import UnitNorm, NonNeg
 from config import MODEL_INPUT_SHAPE, TRAINING, PATH_TO_IMAGES
 from utils import Visualizer
 from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like, flow_to_color, write_flo_file
-from core.builders.data_augmentation import Compose, Normalize
+from core.builders.data_augmentation import Compose, Normalize, InverseNormalize
 from imageio import imread
 
 
@@ -167,18 +167,16 @@ class FlowNet:
         date_time = d.now().strftime("%m_%d_%Y__%H_%M_%S") + ".keras"
         self.model.save(date_time)
 
-    def generate_flow(self, first_image_path: str, second_image_path: str):
-        images = [
-            np.array(Image.open(first_image_path)).astype(np.float32),
-            np.array(Image.open(second_image_path)).astype(np.float32)
-        ]
+    def generate_flow(self, images: list[np.ndarray]):
         input_transform = [
             Normalize(mean=[0, 0, 0], std=[255, 255, 255]),
             Normalize(mean=[0.411, 0.432, 0.45], std=[1, 1, 1])
         ]
         for transform in input_transform:
-            transform(images[0])
-            transform(images[1])
+            images[0] = transform(images[0])
+            images[1] = transform(images[1])
         images = np.concatenate(images, axis=-1)
+        prediction = self.model.predict(np.expand_dims(images, axis=0))
+        output_transform = InverseNormalize(mean=[0, 0], std=[20, 20])(prediction)
 
-        return 20 * self.model.predict(np.expand_dims(images, axis=0))
+        return output_transform

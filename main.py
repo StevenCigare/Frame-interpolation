@@ -2,11 +2,12 @@ import os
 
 import cv2
 import keras.models
-
+import numpy as np
+import tensorflow as tf
 from config import TRAINING, PATH_TO_IMAGES
 from core.builders.flying_chairs_builder import FlyingChairsDataGenerator
 from models.flow_nets import FlowNet
-from utils.utils import write_flo_file,read_flo_file
+from utils.utils import write_flo_file, read_flo_file
 import numpy as np
 
 if __name__ == '__main__':
@@ -14,17 +15,19 @@ if __name__ == '__main__':
     flow_net = FlowNet()
     flow_net.create_model()
     if TRAINING:
-        flow_net.model.load_weights('10_24_2023__22_33_41.keras')
+        flow_net.model.load_weights('best_model_3.83.keras')
         data_generator = FlyingChairsDataGenerator(batch_size=8)
         validation_generator = FlyingChairsDataGenerator(batch_size=8, validation=True)
-        flow_net.train(data_generator, validation_generator, epochs=10)
+        flow_net.train(data_generator, validation_generator, epochs=200)
     else:
-        flow_net.model.load_weights('1_24_2023_22_33_41.keras')
         images = []
         flow_file_name = "{:05d}_flow.flo"
         first_img_name = "{:05d}_img1.ppm"
         second_img_name = "{:05d}_img2.ppm"
-        files_index = 21000
+        files_index = 18624
+        #        flow_net.model.load_weights('epoch_104_best_no_l2.keras')
+        flow_net.model.load_weights('epoch_104_best_no_l2.keras')
+
         flow = flow_net.generate_flow(PATH_TO_IMAGES + first_img_name.format(files_index),
                                       PATH_TO_IMAGES + second_img_name.format(files_index))[0]
         upscaled_flow = cv2.resize(flow, (512, 384), interpolation=cv2.INTER_CUBIC)

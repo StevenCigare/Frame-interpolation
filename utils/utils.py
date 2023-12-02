@@ -14,8 +14,6 @@ def write_flo_file(path: str, flow_data: np.ndarray):
         path: Path where the flow file is saved.
         flow_data: Optical flow data of shape (height, width, 2).
     """
-    if not os.path.exists(path):
-        os.mkdir(path)
     print(f"{path}/predicted.flo")
     with open(f"{path}/predicted.flo", 'wb') as f:
         # magic number, indicates that its valid flow file
@@ -105,7 +103,7 @@ def conv2d_leaky_relu(
         kernel_size=kernel_size,
         strides=strides,
         kernel_initializer=tf.keras.initializers.he_normal(),
-        bias_initializer=tf.keras.initializers.zeros()
+        bias_initializer=tf.keras.initializers.zeros(),
     )(pad)
     return tf.keras.layers.LeakyReLU(alpha=0.1)(conv)
 
@@ -123,7 +121,8 @@ def conv2d_transpose_leaky_relu(
         kernel_size=kernel_size,
         strides=strides,
         kernel_initializer=tf.keras.initializers.he_normal(),
-        bias_initializer=tf.keras.initializers.zeros()
+        bias_initializer=tf.keras.initializers.zeros(),
+
     )(pad)
     return tf.keras.layers.LeakyReLU(alpha=0.1)(conv_trans)
 

@@ -12,7 +12,9 @@ from tensorflow.keras.constraints import UnitNorm, NonNeg
 
 from config import MODEL_INPUT_SHAPE, TRAINING, PATH_TO_IMAGES
 from utils import Visualizer
-from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like, flow_to_color
+from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like, flow_to_color, write_flo_file
+from core.builders.data_augmentation import Compose, Normalize
+from imageio import imread
 
 
 class Epe(tf.keras.losses.Loss):
@@ -22,10 +24,10 @@ class Epe(tf.keras.losses.Loss):
         self.ratio = ratio
 
     def call(self, y_true, y_pred):
-        return self.ratio * tf.keras.backend.sqrt(
+        return 20 * self.ratio * tf.keras.backend.mean(tf.keras.backend.sqrt(
             tf.keras.backend.sum(
                 tf.keras.backend.square(tf.keras.preprocessing.image.smart_resize(y_true, y_pred.shape[1:3]) - y_pred),
-                axis=1, keepdims=True))
+                axis=-1, keepdims=True)))
 
 
 class PatchCallback(tf.keras.callbacks.Callback):
@@ -34,8 +36,8 @@ class PatchCallback(tf.keras.callbacks.Callback):
         self.model = model
         self.images = np.expand_dims(
             np.concatenate([
-                Image.open(f"{PATH_TO_IMAGES}/21000_img1.ppm"),
-                Image.open(f"{PATH_TO_IMAGES}/21000_img2.ppm")
+                np.array(Image.open(f"{PATH_TO_IMAGES}/21000_img1.ppm")).astype(np.float32)[:373, :501, :],
+                np.array(Image.open(f"{PATH_TO_IMAGES}/21000_img2.ppm")).astype(np.float32)[:373, :501, :]
             ], axis=-1
             ), axis=0
         )
@@ -46,7 +48,8 @@ class PatchCallback(tf.keras.callbacks.Callback):
         flow = self.model.predict(self.images)[6][0]
 
         resized = cv2.resize(flow, (512, 384), interpolation=cv2.INTER_CUBIC)
-        #self.visualizer.draw_flow(flow_to_color(resized))
+        write_flo_file(f"output//epoch_{epoch}_", resized)
+        # self.visualizer.draw_flow(flow_to_color(resized))
 
 
 class FlowNet:
@@ -67,7 +70,6 @@ class FlowNet:
 
     def create_model(self):
         # todo: try next training with leakyrelu
-        # x = LeakyReLU(alpha=0.1)(conv1)
         input_layer = tf.keras.layers.Input(shape=MODEL_INPUT_SHAPE)
         conv1 = conv2d_leaky_relu(input_layer, 64, (7, 7), padding=(3, 3), strides=(2, 2))
         conv2 = conv2d_leaky_relu(conv1, 128, (5, 5), padding=(2, 2), strides=(2, 2))
@@ -135,28 +137,48 @@ class FlowNet:
         # Define custom initializers and constraints
 
     def train(self, data_generator, validation_generator=None, epochs=10, steps_per_epoch=None):
+        milestones = [0, 50, 100]  # List of epochs where learning rate will change
+
+        # Define a function to update learning rate based on milestones
+        def scheduler(epoch, lr):
+            if epoch in milestones:
+                return lr * 0.5  # Adjust this factor as needed
+            else:
+                return lr
+
+        lr_scheduler = tf.keras.callbacks.LearningRateScheduler(scheduler, verbose=1)
+
         checkpoint = ModelCheckpoint(
-            filepath='20_01_24_10.keras',  # The filename to save the best model
-            monitor='val_loss',  # The metric to monitor (e.g., validation loss)
+            filepath='best_model.keras',  # The filename to save the best model
+            monitor='val_predict_0_loss',  # The metric to monitor (e.g., validation loss)
             save_best_only=True,  # Save only the best model
             mode='min',  # 'min' for loss, 'max' for accuracy, 'auto' to infer
-            verbose=1  # Set to 1 to see messages when saving
+            verbose=1,  # Set to 1 to see messages when saving
+            use_multiprocessing=True
         )
         self.model.fit(
             data_generator,
             validation_data=validation_generator,
             epochs=epochs,
             steps_per_epoch=steps_per_epoch,
-            callbacks=[checkpoint, PatchCallback(self.model)]
+            callbacks=[checkpoint, lr_scheduler, PatchCallback(self.model)],
+            workers=8,
         )
         date_time = d.now().strftime("%m_%d_%Y__%H_%M_%S") + ".keras"
         self.model.save(date_time)
 
     def generate_flow(self, first_image_path: str, second_image_path: str):
-        images = np.concatenate([
-            Image.open(first_image_path),
-            Image.open(second_image_path)
-        ], axis=-1
-        )
+        images = [
+            np.array(Image.open(first_image_path)).astype(np.float32),
+            np.array(Image.open(second_image_path)).astype(np.float32)
+        ]
+        input_transform = [
+            Normalize(mean=[0, 0, 0], std=[255, 255, 255]),
+            Normalize(mean=[0.411, 0.432, 0.45], std=[1, 1, 1])
+        ]
+        for transform in input_transform:
+            transform(images[0])
+            transform(images[1])
+        images = np.concatenate(images, axis=-1)
 
-        return self.model.predict(np.expand_dims(images, axis=0))
+        return 20 * self.model.predict(np.expand_dims(images, axis=0))

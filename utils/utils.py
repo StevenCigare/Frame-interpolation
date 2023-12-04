@@ -27,7 +27,13 @@ def write_flo_file(path: str, flow_data: np.ndarray):
         f.write(data)
         print("saved")
 
+def read_ppm_image(filename):
+    """
 
+    :param filename:
+    :return:
+    """
+    return np.array(Image.open(filename)).astype(np.float32)
 def read_flo_file(filename):
     """
     Read optical flow data from a .flo file.

@@ -15,7 +15,7 @@ def write_flo_file(path: str, flow_data: np.ndarray):
         flow_data: Optical flow data of shape (height, width, 2).
     """
     print(f"{path}/predicted.flo")
-    with open(f"{path}/predicted.flo", 'wb') as f:
+    with open(f"{path}predicted.flo", 'wb') as f:
         # magic number, indicates that its valid flow file
         # .flo file standard header
         header = np.array([80, 73, 69, 72], dtype=np.uint8)

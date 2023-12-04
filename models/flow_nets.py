@@ -132,12 +132,12 @@ class FlowNet:
 
         self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
                            loss=[Epe(1 / 2), Epe(1 / 4), Epe(1 / 8), Epe(1 / 16), Epe(1 / 32), Epe(1 / 64),
-                                 Epe(1 / 128)])
+                                 Epe(1 / 92)])
         self.model.summary()
         # Define custom initializers and constraints
 
     def train(self, data_generator, validation_generator=None, epochs=10, steps_per_epoch=None):
-        milestones = [0, 50, 100]  # List of epochs where learning rate will change
+        milestones = [100, 150, 200]  # List of epochs where learning rate will change
 
         # Define a function to update learning rate based on milestones
         def scheduler(epoch, lr):

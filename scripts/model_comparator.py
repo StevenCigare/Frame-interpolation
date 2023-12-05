@@ -32,7 +32,6 @@ class ModelComparator:
 
     def compare_algorithms(self) -> ModelComparator:
         self._gunnar_farneback()
-
         return self
 
     def compare_models(self) -> ModelComparator:
@@ -45,15 +44,15 @@ class ModelComparator:
         return self
 
     def _gunnar_farneback(self) -> None:
-        gunnar_results = []
+        results = []
         for image_pair, flow in zip(self.images, self.flows):
             img1 = image_pair[:, :, :3]
             img2 = image_pair[:, :, 3:]
             gray1 = np.array(cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY))
             gray2 = np.array(cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY))
             flow_farneback = np.array(cv2.calcOpticalFlowFarneback(gray1, gray2, None, 0.5, 3, 15, 3, 5, 1.2, 0))
-            gunnar_results.append(float(self._calculate_endpoint_error(flow_farneback, flow)))
-        self._results.update({"gunnar_farneback": np.mean(gunnar_results)})
+            results.append(float(self._calculate_endpoint_error(flow_farneback, flow)))
+        self._results.update({"gunnar_farneback": np.mean(results)})
 
     def get_results(self) -> dict[str, list[float]]:
         if not self._results:

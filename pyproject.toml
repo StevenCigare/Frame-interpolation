@@ -1,0 +1,57 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+exclude = "tests"
+
+[tool.len8]
+exclude = []
+code-length = 88
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.coverage.report]
+omit = []
+
+
+[tool.ruff]
+extend-select = [
+    "B",
+    "BLE",
+    "C4",
+    "ERA",
+    "I",
+    "ICN",
+    "INP",
+    "ISC",
+    "N",
+    "NPY",
+    "PGH",
+    "PIE",
+    # "PTH",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
+    "S",
+    "SIM",
+    "T20",
+    "TCH",
+    "TID",
+    "YTT",
+]
+ignore = ["T201","S605","S607"]
+show-fixes = true

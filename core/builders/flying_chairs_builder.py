@@ -5,33 +5,13 @@ import numpy as np
 from PIL import Image
 from tensorflow.keras.utils import Sequence
 from config import PATH_TO_IMAGES, NUMBER_OF_SAMPLES_TO_LOAD
-from core.builders.data_augmentation import Compose, RandomCrop, RandomTranslate, RandomRotate, RandomHorizontalFlip, \
+from core.builders.data_augmentation import SequentialDataTransform, RandomCrop, RandomTranslate, RandomRotate, \
+    RandomHorizontalFlip, \
     RandomVerticalFlip, Normalize
-from utils.utils import  read_flo_file,read_image
+from utils.utils import read_flo_file, read_ppm_image
 
 
 class FlyingChairsDataGenerator(Sequence):
-    def _set_validation_parameters(self) -> None:
-        """
-        function sets number of samples, indexes and transformations based on type of data generation
-        validation = True
-        training = False
-        """
-        validation_split_idx = int(NUMBER_OF_SAMPLES_TO_LOAD * 0.9) - int(NUMBER_OF_SAMPLES_TO_LOAD * 0.9) % 8
-        if self.validation:
-            self.number_of_samples = int(NUMBER_OF_SAMPLES_TO_LOAD * 0.1) - int(NUMBER_OF_SAMPLES_TO_LOAD * 0.9) % 8
-            self.files_indexes = np.arange(validation_split_idx + 1, NUMBER_OF_SAMPLES_TO_LOAD + 1)
-            self.both_transform = Compose([RandomCrop(373, 501)])
-        else:
-            self.number_of_samples = int(NUMBER_OF_SAMPLES_TO_LOAD * 0.9) - int(NUMBER_OF_SAMPLES_TO_LOAD * 0.9) % 8
-            self.files_indexes = np.arange(1, validation_split_idx + 1)
-            self.both_transform = Compose([
-                RandomTranslate(10, 10),
-                RandomRotate(10, 5),
-                RandomCrop(373, 501),
-                RandomVerticalFlip(),
-                RandomHorizontalFlip()
-            ])
 
     def __init__(self, batch_size: int, validation=False) -> None:
         """
@@ -54,11 +34,33 @@ class FlyingChairsDataGenerator(Sequence):
         self._set_validation_parameters()
         self.on_epoch_end()
 
-    def __len__(self)->int:
+    def __len__(self) -> int:
         """return how many steps are in data loader, step = samples/batch_size"""
         return int(np.ceil(self.number_of_samples / self.batch_size))
 
-    def on_epoch_end(self) -> none:
+    def _set_validation_parameters(self) -> None:
+        """
+        function sets number of samples, indexes and transformations based on type of data generation
+        validation = True
+        training = False
+        """
+        validation_split_idx = int(NUMBER_OF_SAMPLES_TO_LOAD * 0.9) - int(NUMBER_OF_SAMPLES_TO_LOAD * 0.9) % 8
+        if self.validation:
+            self.number_of_samples = int(NUMBER_OF_SAMPLES_TO_LOAD * 0.1) - int(NUMBER_OF_SAMPLES_TO_LOAD * 0.9) % 8
+            self.files_indexes = np.arange(validation_split_idx + 1, NUMBER_OF_SAMPLES_TO_LOAD + 1)
+            self.both_transform = SequentialDataTransform([RandomCrop(373, 501)])
+        else:
+            self.number_of_samples = int(NUMBER_OF_SAMPLES_TO_LOAD * 0.9) - int(NUMBER_OF_SAMPLES_TO_LOAD * 0.9) % 8
+            self.files_indexes = np.arange(1, validation_split_idx + 1)
+            self.both_transform = SequentialDataTransform([
+                RandomTranslate(10, 10),
+                RandomRotate(10, 5),
+                RandomCrop(373, 501),
+                RandomVerticalFlip(),
+                RandomHorizontalFlip()
+            ])
+
+    def on_epoch_end(self) -> None:
         """
         On end of each epoch we shuffle all samples
         """

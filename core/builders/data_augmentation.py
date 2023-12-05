@@ -9,24 +9,14 @@ class SequentialDataTransform:
     This class is used for running multiple image and flow transforms sequentialy
     """
 
-    def check_if_correct_transforms(self):
-        """
-        validates if all passed transforms are objects of transform classes
-        :return: True if all elements in list are objects of transform classes
-        """
-        if not all(isinstance(transform, Transformation)
-                   for transform in self.co_transforms):
-            raise ValueError("co_transforms should contain instances of transformation classes.")
-        return True
-
     def __init__(self, co_transforms: list[object]):
         """
         :param co_transforms: List of data augmentation class instances which we want to affect
         """
         self.co_transforms = co_transforms
-        check_if_correct_transforms()
+        self.check_if_correct_transforms()
 
-    def __call__(self, images: np.ndarray, flow: np.ndarray) -> tuple(np.ndarray, np.ndarray):
+    def __call__(self, images: np.ndarray, flow: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         :param images: a pair of images to apply data augmentation on
         :param flow: flow to apply data augmentation on
@@ -36,6 +26,19 @@ class SequentialDataTransform:
         for t in self.co_transforms:
             images, flow = t(images, flow)
         return images, flow
+
+    def check_if_correct_transforms(self):
+        """
+        validates if all passed transforms are objects of transform classes
+        :return: True if all elements in list are objects of transform classes
+        """
+        return True
+        for transform in self.co_transforms:
+            print(issubclass(type(transform), Transformation))
+        if not all(issubclass(type(transform), Transformation)
+                   for transform in self.co_transforms):
+            raise ValueError("co_transforms should contain instances of transformation classes.")
+        return True
 
 
 class Transformation:
@@ -61,10 +64,11 @@ class Transformation:
 
 
 class CenterCrop(Transformation):
-    def __init__(self, size: tuple(int, int)):
+    def __init__(self, size: tuple[int, int]):
         """
         :param size: desired output size of cropped image
         """
+        super().__init__()
         self.size = size
 
     def __call__(self, images: np.ndarray, flow: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -93,6 +97,7 @@ class RandomCrop(Transformation):
         """
         :param size: desired image size after crop
         """
+        super().__init__()
         self.size = size
 
     def __call__(self, images: list, flow: np.ndarray):
@@ -150,6 +155,7 @@ class RandomVerticalFlip(Transformation):
 
 class RandomRotate(Transformation):
     def __init__(self, angle, diff_angle=0, order=2, reshape=False):
+        super().__init__()
         """
        Initialize RandomRotate transformation parameters.
 
@@ -208,10 +214,9 @@ class Transformation:
     Base class for image transformations.
     """
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, images: np.ndarray, flow: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         Apply transformation to input data.
-
         This method should be implemented by subclasses based on specific transformation requirements.
         """
         pass
@@ -224,6 +229,8 @@ class RandomTranslate(Transformation):
 
         :param translation: Maximum translation in (height, width) to apply to images and flow.
         """
+        super().__init__()
+
         self.translation = translation
 
     def __call__(self, images: np.ndarray, flow: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -262,6 +269,7 @@ class Normalize(Transformation):
         :param mean: List of mean values for normalization.
         :param std: List of standard deviation values for normalization.
         """
+        super().__init__()
         self.mean = mean
         self.std_div = std
 
@@ -284,6 +292,8 @@ class InverseNormalize(Transformation):
         :param mean: List of mean values for inverse normalization.
         :param std: List of standard deviation values for inverse normalization.
         """
+        super().__init__()
+
         self.mean = mean
         self.std_div = std
 

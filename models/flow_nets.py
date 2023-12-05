@@ -13,7 +13,7 @@ from tensorflow.keras.constraints import UnitNorm, NonNeg
 from config import MODEL_INPUT_SHAPE, TRAINING, PATH_TO_IMAGES
 from utils import Visualizer
 from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like, flow_to_color, write_flo_file
-from core.builders.data_augmentation import Compose, Normalize, InverseNormalize
+from core.builders.data_augmentation import SequentialDataTransform, Normalize, InverseNormalize
 from imageio import imread
 
 
@@ -53,7 +53,7 @@ class PatchCallback(tf.keras.callbacks.Callback):
 
 
 class FlowNet:
-    def __init__(self):
+    def __init__(self) -> None:
         self._model = None
 
     @property

@@ -4,9 +4,10 @@ import cv2
 import numpy as np
 import tensorflow as tf
 from PIL import Image
+from config import PATH_TO_IMAGES,FULLSCALE_FLOW_SHAPE
 
 
-def write_flo_file(path: str, flow_data: np.ndarray):
+def write_flo_file(path: str, flow_data: np.ndarray)->None:
     """
     Write optical flow data to a .flo file.
 
@@ -14,8 +15,8 @@ def write_flo_file(path: str, flow_data: np.ndarray):
         path: Path where the flow file is saved.
         flow_data: Optical flow data of shape (height, width, 2).
     """
-    print(f"{path}/predicted.flo")
-    with open(f"{path}predicted.flo", 'wb') as f:
+    print(f"{path}")
+    with open(f"{path}", 'wb') as f:
         # magic number, indicates that its valid flow file
         # .flo file standard header
         header = np.array([80, 73, 69, 72], dtype=np.uint8)
@@ -26,15 +27,46 @@ def write_flo_file(path: str, flow_data: np.ndarray):
         f.write(dimensions.tobytes())
         f.write(data)
         print("saved")
-
-def read_ppm_image(filename):
+def run_flow_estimation_model(model ,sample_idx:int)->np.ndarray:
+    """
+    :param sample_idx: id of sample from flying chairs to evalute on
+    :return: fullscale flow calculated via given model
+    """
+    img1 =read_ppm_image(f"{PATH_TO_IMAGES}/{sample_idx}_img1.ppm")
+    img2 = read_ppm_image(f"{PATH_TO_IMAGES}/{sample_idx}_img2.ppm")
+    images_array = [img1.astype(np.float32)[:373, :501, :], img2.astype(np.float32)[:373, :501, :]]
+    flow = model.generate_flow(images_array)[0]
+    return tf.keras.preprocessing.image.smart_resize(flow, FULLSCALE_FLOW_SHAPE)
+def run_flow_estimation_cv2(sample_idx:int) ->np.ndarray:
+    img1 = read_ppm_image(f"{PATH_TO_IMAGES}/{sample_idx}_img1.ppm")
+    img2 = read_ppm_image(f"{PATH_TO_IMAGES}/{sample_idx}_img2.ppm")
+    gray1 = np.array(cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY))
+    gray2 = np.array(cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY))
+    flow_farneback = np.array(cv2.calcOpticalFlowFarneback(gray1, gray2, None, 0.5, 3,
+                                                           15, 3, 5, 1.2, 0))
+    return flow_farneback
+def save_results(output_path:str,file_name:str,flow:np.ndarray,idx:int)->None:
+    """
+    :param output_path: path to save visualised gt flow, predicted flow , and visualised predicted flow
+    :param file_name: name for predicted flow
+    :param flow: ndarray containing predicted flow
+    :param idx: idx of gt flow
+    :return:
+    """
+    FLOW_FILE_NAME = "{:05d}_flow.flo"
+    write_flo_file(output_path + file_name, flow)
+    os.system("python -m flowiz " + output_path + file_name)
+    os.system(
+        "python -m flowiz " + PATH_TO_IMAGES + FLOW_FILE_NAME.format(idx)
+        + " --outdir " + output_path)
+def read_ppm_image(filename:str)->np.ndarray:
     """
 
     :param filename:
     :return:
     """
     return np.array(Image.open(filename)).astype(np.float32)
-def read_flo_file(filename):
+def read_flo_file(filename: str) ->np.ndarray:
     """
     Read optical flow data from a .flo file.
 
@@ -94,8 +126,16 @@ def flow_to_color(flow: np.ndarray, max_flow=None):
     flow_color = cv2.cvtColor(flow_color, cv2.COLOR_BGR2GRAY)
 
     return flow_color
-
-
+def calculate_epe(flow_gt : np.ndarray,flow_pred:np.ndarray) -> float:
+    """
+    :param flow_gt: array containing grand truth optical flow
+    :param flow_pred: array containing predicted optical flow
+    :return: end-point-error for predicted flow
+    """
+    du = flow_pred[:, :, 0] - flow_gt[:, :, 0]
+    dv = flow_pred[:, :, 1] - flow_gt[:, :, 1]
+    endpoint_error = np.sum(np.sqrt(du ** 2 + dv ** 2)) / (flow_gt.shape[0] * flow_gt.shape[1])
+    return endpoint_error
 def conv2d_leaky_relu(
         layer_input,
         filters: int,

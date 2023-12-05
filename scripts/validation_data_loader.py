@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 from PIL import Image
-from core.builders.data_augmentation import Compose, RandomCrop
+from core.builders.data_augmentation import SequentialDataTransform, RandomCrop
 
 
 class ValidationDataLoader:
@@ -14,7 +14,7 @@ class ValidationDataLoader:
         validation_split_idx = int(number_of_samples_to_load * 0.9) - int(number_of_samples_to_load * 0.9) % 8
         self.files_indexes = np.arange(validation_split_idx + 1, number_of_samples_to_load + 1)
 
-        self.crop = Compose([RandomCrop((373, 501))])
+        self.crop = SequentialDataTransform([RandomCrop((373, 501))])
 
     def load_data(self):
         flows = []

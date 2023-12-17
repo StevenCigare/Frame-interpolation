@@ -6,9 +6,16 @@ Recommended graphics card is NVIDIA RTX 20XX or better. Make sure you have a gra
 ## Integrated Development Environment (IDE):
 
 Recommended IDE is PyCharm. Ensure that PyCharm is installed and configured for your work.
+## Required dataset 
+download Flyingchairs dataset and move it to FlyingChairs/.
+download link:
+https://lmb.informatik.uni-freiburg.de/resources/datasets/FlyingChairs.en.html#flyingchairs
 ## Dependencies Installation in the Terminal:
 
 In the terminal, run the command pip install -r requirements.txt to install the required dependencies.
+then in terminal run:
+python main.py
+
 ## Adjusting Configuration in config.py:
 
 Edit the configuration in the config.py file with the following parameters:

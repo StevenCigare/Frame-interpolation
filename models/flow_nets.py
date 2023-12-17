@@ -12,7 +12,7 @@ from tensorflow.keras.constraints import UnitNorm, NonNeg
 
 from config import MODEL_INPUT_SHAPE, TRAINING, PATH_TO_IMAGES
 from utils import Visualizer
-from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop_like, flow_to_color, write_flo_file
+from utils.utils import conv2d_leaky_relu, conv2d_transpose_leaky_relu, crop, flow_to_color, write_flo_file
 from core.builders.data_augmentation import SequentialDataTransform, Normalize, InverseNormalize
 from imageio import imread
 
@@ -86,38 +86,38 @@ class FlowNet:
         predict_6 = Conv2D(name='predict_6', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
             conv6_1)
 
-        upconv5 = crop_like(conv2d_transpose_leaky_relu(conv6, 512, (4, 4), (1, 1), (2, 2)), conv5_1)
-        flow6 = crop_like(conv2d_transpose_leaky_relu(predict_6, 2, (4, 4), (1, 1), (2, 2)), conv5_1)
+        upconv5 = crop(conv2d_transpose_leaky_relu(conv6, 512, (4, 4), (1, 1), (2, 2)), conv5_1)
+        flow6 = crop(conv2d_transpose_leaky_relu(predict_6, 2, (4, 4), (1, 1), (2, 2)), conv5_1)
         concat5 = Concatenate(axis=-1)([upconv5, conv5_1, flow6])
         predict5 = Conv2D(name='predict_5', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
             concat5)
         # try use_bias = false in predict
-        upconv4 = crop_like(conv2d_transpose_leaky_relu(concat5, 256, (4, 4), (1, 1), (2, 2)), conv4_1)
-        flow5 = crop_like(conv2d_transpose_leaky_relu(predict5, 2, (4, 4), (1, 1), (2, 2)), conv4_1)
+        upconv4 = crop(conv2d_transpose_leaky_relu(concat5, 256, (4, 4), (1, 1), (2, 2)), conv4_1)
+        flow5 = crop(conv2d_transpose_leaky_relu(predict5, 2, (4, 4), (1, 1), (2, 2)), conv4_1)
         concat4 = Concatenate(axis=-1)([upconv4, conv4_1, flow5])
         predict4 = Conv2D(name='predict_4', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
             concat4)
 
-        upconv3 = crop_like(conv2d_transpose_leaky_relu(concat4, 128, (4, 4), (1, 1), (2, 2)), conv3_1)
-        flow4 = crop_like(conv2d_transpose_leaky_relu(predict4, 2, (4, 4), (1, 1), (2, 2)), conv3_1)
+        upconv3 = crop(conv2d_transpose_leaky_relu(concat4, 128, (4, 4), (1, 1), (2, 2)), conv3_1)
+        flow4 = crop(conv2d_transpose_leaky_relu(predict4, 2, (4, 4), (1, 1), (2, 2)), conv3_1)
         concat3 = Concatenate(axis=-1)([upconv3, conv3_1, flow4])
         predict3 = Conv2D(name='predict_3', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
             concat3)
 
-        upconv2 = crop_like(conv2d_transpose_leaky_relu(concat3, 64, (4, 4), (1, 1), (2, 2)), conv2)
-        flow3 = crop_like(conv2d_transpose_leaky_relu(predict3, 2, (4, 4), (1, 1), (2, 2)), conv2)
+        upconv2 = crop(conv2d_transpose_leaky_relu(concat3, 64, (4, 4), (1, 1), (2, 2)), conv2)
+        flow3 = crop(conv2d_transpose_leaky_relu(predict3, 2, (4, 4), (1, 1), (2, 2)), conv2)
         concat2 = Concatenate(axis=-1)([upconv2, conv2, flow3])
         predict2 = Conv2D(name='predict_2', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
             concat2)
 
-        upconv1 = crop_like(conv2d_transpose_leaky_relu(concat2, 64, (4, 4), (1, 1), (2, 2)), conv1)
-        flow2 = crop_like(conv2d_transpose_leaky_relu(predict2, 2, (4, 4), (1, 1), (2, 2)), conv1)
+        upconv1 = crop(conv2d_transpose_leaky_relu(concat2, 64, (4, 4), (1, 1), (2, 2)), conv1)
+        flow2 = crop(conv2d_transpose_leaky_relu(predict2, 2, (4, 4), (1, 1), (2, 2)), conv1)
         concat1 = Concatenate(axis=-1)([upconv1, conv1, flow2])
         predict1 = Conv2D(name='predict_1', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
             concat1)
 
-        upconv0 = crop_like(conv2d_transpose_leaky_relu(concat1, 64, (4, 4), (1, 1), (2, 2)), input_layer)
-        flow1 = crop_like(conv2d_transpose_leaky_relu(predict1, 2, (4, 4), (1, 1), (2, 2)), input_layer)
+        upconv0 = crop(conv2d_transpose_leaky_relu(concat1, 64, (4, 4), (1, 1), (2, 2)), input_layer)
+        flow1 = crop(conv2d_transpose_leaky_relu(predict1, 2, (4, 4), (1, 1), (2, 2)), input_layer)
         concat0 = Concatenate(axis=-1)([upconv0, input_layer, flow1])
         predict0 = Conv2D(name='predict_0', filters=2, kernel_size=3, strides=(1, 1), activation=None, use_bias=False)(
             concat0)
@@ -162,7 +162,7 @@ class FlowNet:
             epochs=epochs,
             steps_per_epoch=steps_per_epoch,
             callbacks=[checkpoint, lr_scheduler, PatchCallback(self.model)],
-            workers=8,
+            workers=8
         )
         date_time = d.now().strftime("%m_%d_%Y__%H_%M_%S") + ".keras"
         self.model.save(date_time)

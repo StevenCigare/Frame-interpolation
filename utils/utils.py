@@ -173,7 +173,7 @@ def conv2d_transpose_leaky_relu(
     return tf.keras.layers.LeakyReLU(alpha=0.1)(conv_trans)
 
 
-def crop_like(input, target):
+def crop(input, target):
     if input.shape[2:] == target.shape[2:]:
         return input
     else:

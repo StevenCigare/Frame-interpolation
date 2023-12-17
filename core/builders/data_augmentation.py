@@ -234,21 +234,13 @@ class RandomTranslate(Transformation):
         self.translation = translation
 
     def __call__(self, images: np.ndarray, flow: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Apply random translation to input images and adjust flow vectors.
-
-        :param images: Input images to be translated.
-        :param flow: Associated flow vectors for translation.
-        :return: Tuple containing translated images and updated flow vectors.
-        """
         h, w, _ = images[0].shape
         th, tw = self.translation
         tw = random.randint(-tw, tw)
         th = random.randint(-th, th)
         if tw == 0 and th == 0:
             return images, flow
-
-        # compute x1, x2, y1, y2 for img1 and target, and x3, x4, y3, y4 for img2
+        # compute x1,x2,y1,y2 for img1 and target, and x3,x4,y3,y4 for img2
         x1, x2, x3, x4 = max(0, tw), min(w + tw, w), max(0, -tw), min(w - tw, w)
         y1, y2, y3, y4 = max(0, th), min(h + th, h), max(0, -th), min(h - th, h)
 
